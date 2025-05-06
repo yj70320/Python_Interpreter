@@ -1,0 +1,132 @@
+{ #use "token.ml";;
+  #use "tree.ml";;
+  exception Bad_Character;;
+  } (* header *)
+
+let ints = '0' | ['1'-'9']['0'-'9']*
+let bools = "true" | "false"
+let floats = ints '.' ['0'-'9']* | ['1'-'9']('e'|'E')('-'?)('0' | ['1'-'9']*['0'-'9']*)
+let ids = ['a'-'z']+ ['0'-'9']*
+let ifs = "if"
+let elses = "else"
+let plus = "+"
+let minus = "-"
+let divs = "/"
+let times = "*"
+let is_equ = "==" | "is"
+let is_neq = "!=" | "<>" | "is not"
+let equ = "="
+let lparen = "("
+let rparen = ")"
+let begin_comment = "(*"
+let end_comment = "*)"
+let unary_minus = "-"
+let unary_plus = "+"
+let print = "print"
+let true = "True"
+let false = "False"
+let geq = ">="
+let gth = ">"
+let leq = "<="
+let lth = "<"
+let expon = "**"
+let nd = "and"
+let or = "or"
+let nl = "\n"
+let tab = "\t"
+let space = " "
+let end_if = ':'
+let nothing = ""
+
+rule lexer = parse
+     ints as s          { (Int_tok (float_of_string s)) :: (lexer lexbuf) }
+   | floats as s        { (Float_tok (float_of_string s)) :: (lexer lexbuf) }
+   | space              { (Space_tok) :: (lexer lexbuf) }
+   | bools as s         { (Bool_tok (bool_of_string s)) :: (lexer lexbuf) }
+   | print              { (Print_tok) :: (lexer lexbuf) }
+   | is_equ             { (Is_Equ_tok) :: (lexer lexbuf) }
+   | is_neq             { (Is_Neq_tok) :: (lexer lexbuf) }
+   | nd                 { (And_tok) :: (unary 0 0 lexbuf) }
+   | or                 { (Or_tok) :: (unary 0 0 lexbuf) }
+   | ifs                { (If_tok) :: (lexer lexbuf) }
+   | elses              { (Else_tok) :: (lexer lexbuf) }
+   | end_if             { (End_If_tok) :: (lexer lexbuf) }
+   | ids as s           { (Id_tok s) :: (lexer lexbuf) }
+   | plus               { (Plus_tok) :: (unary 0 0 lexbuf) }
+   | expon              { (Exp_tok) :: (unary 0 0 lexbuf) }
+   | minus              { (Minus_tok) :: (unary 0 0 lexbuf) }
+   | divs               { (Div_tok) :: (unary 0 0 lexbuf) }
+   | times              { (Times_tok) :: (unary 0 0 lexbuf) }
+   | equ                { (Equ_tok) :: (unary 0 0 lexbuf) }
+   | lparen             { (Lparen_tok) :: (unary 0 0 lexbuf) }
+   | rparen             { (Rparen_tok) :: (lexer lexbuf) }
+   | begin_comment      { comment 0 lexbuf }
+   | space              { lexer lexbuf }
+   | true               { (Bool_tok (true)) :: (lexer lexbuf) }
+   | false              { (Bool_tok (false)) :: (lexer lexbuf) }
+   | geq                { (Geq_tok) :: (unary 0 0 lexbuf) }
+   | gth                { (Gth_tok) :: (unary 0 0 lexbuf) }
+   | leq                { (Leq_tok) :: (unary 0 0 lexbuf) }
+   | lth                { (Lth_tok) :: (unary 0 0 lexbuf) }
+   | nl                 { (Nl_tok) :: (lexer lexbuf) }
+   | tab                { (Tab_tok) :: (lexer lexbuf) }
+   | nothing            { lexer lexbuf }
+   | _                  { raise Bad_Character }
+   | eof                { [] }
+and
+ comment n = parse
+   end_comment          { if n = 0 then
+                             lexer lexbuf
+                          else
+                             comment (n-1) lexbuf
+                        }
+ | begin_comment        { comment (n+1) lexbuf }
+ | _                    { comment n lexbuf }
+ | eof                  { [] }
+and
+  unary n p = parse
+    unary_minus        { unary (n+1) p lexbuf }
+  | unary_plus         { unary n (p+1) lexbuf }
+  | ints as s          {
+                        if n mod 2 = 0 then
+                        (Int_tok (float_of_string s)) :: (lexer lexbuf)
+                        else
+                        (Int_tok ((float_of_string s) *. -1.0))::(lexer lexbuf)
+                       }
+  | floats as s        {
+                        if n mod 2 = 0 then
+                        (Float_tok (float_of_string s)) :: (lexer lexbuf)
+                        else
+                        (Float_tok ((float_of_string s) *. -1.0))::(lexer lexbuf)
+                       }
+  | space              { (Space_tok) :: (unary n p lexbuf) }
+  | print              { (Print_tok) :: (unary n p lexbuf) }
+  | is_equ             { (Is_Equ_tok) :: (unary n p lexbuf) }
+  | is_neq             { (Is_Neq_tok) :: (unary n p lexbuf) }
+  | nd                 { (And_tok) :: (unary n p lexbuf) }
+  | or                 { (Or_tok) ::  (unary n p lexbuf) }
+  | ifs                { (If_tok) :: (unary n p lexbuf) }
+  | elses              { (Else_tok) :: (unary n p lexbuf) }
+  | end_if             { (End_If_tok) :: (unary n p lexbuf) }
+  | ids as s           { (Id_tok s) :: (lexer lexbuf) }
+  | equ                { (Equ_tok) :: (unary n p lexbuf) } 
+  | lparen             { (Lparen_tok) :: (unary n p lexbuf) }
+  | rparen             { (Rparen_tok) :: (lexer lexbuf) }
+  | begin_comment      { comment 0 lexbuf }
+  | space              { unary n p lexbuf }
+  | true               { (Bool_tok (true)) :: (lexer lexbuf) }
+  | false              { (Bool_tok (false)) :: (lexer lexbuf) }
+  | geq                { (Geq_tok) :: (unary n p lexbuf) }
+  | gth                { (Gth_tok) :: (unary n p lexbuf) }
+  | leq                { (Leq_tok) :: (unary n p lexbuf) }
+  | lth                { (Lth_tok) :: (unary n p lexbuf) }
+  | nl                 { (Nl_tok) :: (unary n p lexbuf) }
+  | tab                { (Tab_tok) :: (unary n p lexbuf) }
+  | nothing            { unary n p lexbuf } 
+  | eof                { if n > 0 || p > 0 then raise SyntaxError
+                         else []
+                       }
+  | _                  { raise Bad_Character }
+  
+{}
+
